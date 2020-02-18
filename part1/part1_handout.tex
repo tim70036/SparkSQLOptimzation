@@ -128,13 +128,14 @@ WHERE coastline = "yes"
 \end{verbatim}
 
 \subsection*{Analyzed Logical Plan}
-\vspace{2in}
+$\pi_{country, EU}(\sigma_{coastline = yes}(Countries))$
 
 \subsection*{Optimized Logical Plan}
-\vspace{2in}
+$\pi_{country, EU}(\sigma_{coastline = yes}(Countries))$
 
 \subsection*{Explanation}
-
+The analyzed and optimized plans are the exact same because there is no logical optimization
+for projecting different columns after selecting based on a specific column.
 \newpage
 
 \section{}
@@ -148,12 +149,13 @@ WHERE temp < 4
 \end{verbatim}
 
 \subsection*{Analyzed Logical Plan}
-\vspace{2in}
+$\pi_{city}(\sigma_{temp < 4}(\pi_{city, temp}(cities)))$
 
 \subsection*{Optimized Logical Plan}
-\vspace{2in}
+$\pi_{city}(\sigma_{temp < 4}(cities))$
 
 \subsection*{Explanation}
+The result data is projection of city and selection based on temp. However, first projecting out city and temp to form a intermediate relation will not help performance. As a result, the optimized plan eliminate the unnecessary $\pi_{city, temp}(cities)$
 
 \newpage
 
@@ -167,12 +169,17 @@ WHERE Cities.country = Countries.country
 \end{verbatim}
 
 \subsection*{Analyzed Logical Plan}
-\vspace{2in}
+let A = \{city, country, latitude, longitude, temp, country, pop, EU, coastline\}
+
+let p = ($cities.country = countries.country \: \land  \: temp < 4 \: \land \: pop > 6$)
+
+$\pi_{A}(\sigma_{p}(cities \bowtie countries))$
 
 \subsection*{Optimized Logical Plan}
-\vspace{2in}
+$(\sigma_{temp > 4}(cities)) \bowtie_{cities.country = countries.country} (\sigma_{pop > 6}(countries))$
 
 \subsection*{Explanation}
+The optimized plan pushes down the selection. This will increase join performance, since after the selections, there will be fewer rows when joining countries and cities. Also, The optimized plan eliminates the projection, since there is no meaning to project out every column.
 
 \newpage
 
@@ -185,12 +192,17 @@ WHERE Cities.country = Countries.country
 \end{verbatim}
 
 \subsection*{Analyzed Logical Plan}
-\vspace{2in}
+$\pi_{city, pop}(\sigma_{cities.country = countries.country \: \land  \: pop > 6}(cities \bowtie countries))$
 
 \subsection*{Optimized Logical Plan}
-\vspace{2in}
+let A = $\pi_{city, country}(cities)$
+
+let B = $\pi_{country, pop}(\sigma_{pop > 6}(countries))$
+
+$\pi_{city, pop}(A \bowtie_{A.country = B.country} B)$
 
 \subsection*{Explanation}
+The optimized plan pushes down both selection and projection before joining. This helps performance of joining, since the rows will be fewer after those projections and selections.
 
 \newpage
 
@@ -202,12 +214,13 @@ WHERE country LIKE "%e%d"
 \end{verbatim}
 
 \subsection*{Analyzed Logical Plan}
-\vspace{2in}
+$\pi_{country, pop, EU, coastline}(\sigma_{country \; LIKE \; \%e\%d}(countries))$
 
 \subsection*{Optimized Logical Plan}
-\vspace{2in}
+$\sigma_{country \; LIKE \; \%e\%d}(countries)$
 
 \subsection*{Explanation}
+The optimized plan eliminates the projection, since there is no meaning to project out every column.
 
 \newpage
 
@@ -219,12 +232,13 @@ WHERE country LIKE "%ia"
 \end{verbatim}
 
 \subsection*{Analyzed Logical Plan}
-\vspace{2in}
+$\pi_{country, pop, EU, coastline}(\sigma_{country \; LIKE \; \%ia}(countries))$
 
 \subsection*{Optimized Logical Plan}
-\vspace{2in}
+$\sigma_{EndWiths(country, ia)}(countries)$
 
 \subsection*{Explanation}
+The optimized plan eliminates the projection, since there is no meaning to project out every column. Also, the selection "country LIKE \%ia" is same as finding country that ends with "ia". Thus, spark replaced "LIKE" with its function.
 
 \newpage
 
@@ -238,12 +252,13 @@ FROM (
 \end{verbatim}
 
 \subsection*{Analyzed Logical Plan}
-\vspace{2in}
+$\pi_{t1 + 1 \; AS \; t2}(\pi_{cast(temp,int) + 1 \; AS \; t1}(cities))$
 
 \subsection*{Optimized Logical Plan}
-\vspace{2in}
+$\pi_{cast(temp,int) + 2 \; AS \; t2}(cities)$
 
 \subsection*{Explanation}
+The optimized plan combines two projections into one, since the 2 equations "t1 = temp + 1, t2 = t1 + 1" can be written as "t2 = temp + 2".
 
 \newpage
 
@@ -257,11 +272,12 @@ FROM (
 \end{verbatim}
 
 \subsection*{Analyzed Logical Plan}
-\vspace{2in}
+$\pi_{t1 + 1.0 \; AS \; t2}(\pi_{cast(temp,double) + 1.0 \; AS \; t1}(cities))$
 
 \subsection*{Optimized Logical Plan}
-\vspace{2in}
+$\pi_{(cast(temp,double) + 1.0) + 1.0 \; AS \; t2}(cities)$
 
 \subsection*{Explanation}
+The optimized plan combines two projections into one, since the 2 equations "t1 = temp + 1.0, t2 = t1 + 1.0" can be written as "t2 = temp + 1.0 + 1.0". The 2 "1.0" in equation "t2 = temp + 1.0 + 1.0" is probably used for avoiding rounding error("+1.0+1,0" is not same as "+2.0"). Also, the plan is different from Problem7, since there is no casting specified in the original sql query.
 
 \end{document}
